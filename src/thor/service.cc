@@ -46,6 +46,21 @@ namespace {
       factory.Register("bicycle", sif::CreateBicycleCost);
       factory.Register("pedestrian", sif::CreatePedestrianCost);
       factory.Register("transit", sif::CreateTransitCost);
+
+      ////////////////////
+      // MAPILLARY ONLY //
+      ////////////////////
+      // Favor photo ways
+      factory.Register("fp_auto", sif::CreateFavorPhotoAutoCost);
+      factory.Register("fp_auto_shorter", sif::CreateFavorPhotoAutoShorterCost);
+      factory.Register("fp_bicycle", sif::CreateFavorPhotoBicycleCost);
+      factory.Register("fp_pedestrian", sif::CreateFavorPhotoPedestrianCost);
+
+      // Penalize photo ways
+      factory.Register("pp_auto", sif::CreatePenalizePhotoAutoCost);
+      factory.Register("pp_auto_shorter", sif::CreatePenalizePhotoAutoShorterCost);
+      factory.Register("pp_bicycle", sif::CreatePenalizePhotoBicycleCost);
+      factory.Register("pp_pedestrian", sif::CreatePenalizePhotoPedestrianCost);
     }
     worker_t::result_t work(const std::list<zmq::message_t>& job, void* request_info) {
       auto& info = *static_cast<http_request_t::info_t*>(request_info);
