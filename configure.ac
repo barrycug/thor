@@ -3,6 +3,7 @@ AC_INIT([thor],
 	[https://github.com/valhalla/thor/issues],
 	[thor-0.0.1],
 	[https://github.com/valhalla/thor])
+AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE([subdir-objects parallel-tests])
 LT_INIT
 AC_SUBST([LIBTOOL_DEPS])
@@ -40,7 +41,7 @@ AX_BOOST_THREAD
 AX_BOOST_FILESYSTEM
 
 # check pkg-config dependencies
-PKG_CHECK_MODULES([DEPS], [protobuf >= 2.4.0 libzmq >= 4.0 libprime_server >= 0.1.2])
+PKG_CHECK_MODULES([DEPS], [protobuf >= 2.4.0 libzmq >= 4.0 libprime_server >= 0.3.1])
 
 # optionally enable coverage information
 CHECK_COVERAGE

@@ -30,6 +30,7 @@ libtool
 # built objects
 pathtest
 citytest
+timedistance_test
 thor_service
 *.o
 .deps/
@@ -43,6 +44,7 @@ test-suite.log
 test-driver
 test/edgestatus
 test/adjacencylist
+test/optimizer
 test/*.log
 test/*.trs
 

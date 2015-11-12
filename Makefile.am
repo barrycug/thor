@@ -42,8 +42,10 @@ nobase_include_HEADERS = \
 	valhalla/thor/astarheuristic.h \
 	valhalla/thor/bidirectional_astar.h \
 	valhalla/thor/edgestatus.h \
+	valhalla/thor/optimizer.h \
 	valhalla/thor/pathalgorithm.h \
 	valhalla/thor/pathinfo.h \
+	valhalla/thor/timedistancematrix.h \
 	valhalla/thor/trippathbuilder.h \
 	valhalla/thor/service.h
 libvalhalla_thor_la_SOURCES = \
@@ -52,7 +54,9 @@ libvalhalla_thor_la_SOURCES = \
 	src/thor/bidirectional_astar.cc \
 	src/thor/edgestatus.cc \
 	src/thor/multimodal.cc \
+	src/thor/optimizer.cc \
 	src/thor/pathalgorithm.cc \
+	src/thor/timedistancematrix.cc \
 	src/thor/trippathbuilder.cc \
 	src/thor/service.cc
 libvalhalla_thor_la_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_CPPFLAGS) @BOOST_CPPFLAGS@
@@ -62,15 +66,25 @@ libvalhalla_thor_la_LIBADD = $(DEPS_LIBS) $(VALHALLA_LDFLAGS) $(BOOST_PROGRAM_OP
 bin_PROGRAMS = \
 	pathtest \
 	citytest \
+	adjlistbenchmark \
+	timedistance_test \
 	thor_service
 pathtest_SOURCES = \
 	src/thor/pathtest/pathtest.cc
 pathtest_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_CPPFLAGS) @BOOST_CPPFLAGS@
 pathtest_LDADD = $(DEPS_LIBS) $(VALHALLA_LDFLAGS) @BOOST_LDFLAGS@ $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_FILESYSTEM_LIB) -lz libvalhalla_thor.la
+adjlistbenchmark_SOURCES = \
+	src/thor/adjlistbenchmark/adjlistbenchmark.cc
+adjlistbenchmark_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_CPPFLAGS) @BOOST_CPPFLAGS@
+adjlistbenchmark_LDADD = $(DEPS_LIBS) $(VALHALLA_LDFLAGS) @BOOST_LDFLAGS@ $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_FILESYSTEM_LIB) -lz libvalhalla_thor.la
 citytest_SOURCES = \
 	src/thor/citytest/citytest.cc
 citytest_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_CPPFLAGS) @BOOST_CPPFLAGS@
 citytest_LDADD = $(DEPS_LIBS) $(VALHALLA_LDFLAGS) @BOOST_LDFLAGS@ $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_FILESYSTEM_LIB) -lz libvalhalla_thor.la
+timedistance_test_SOURCES = \
+	src/thor/timedistance_test/timedistance_test.cc
+timedistance_test_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_CPPFLAGS) @BOOST_CPPFLAGS@
+timedistance_test_LDADD = $(DEPS_LIBS) $(VALHALLA_LDFLAGS) @BOOST_LDFLAGS@ $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_FILESYSTEM_LIB) -lz libvalhalla_thor.la
 thor_service_SOURCES = \
         src/thor/thor_service.cc
 thor_service_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_CPPFLAGS) @BOOST_CPPFLAGS@
@@ -79,10 +93,14 @@ thor_service_LDADD = $(DEPS_LIBS) $(VALHALLA_LDFLAGS) @BOOST_LDFLAGS@ $(BOOST_PR
 # tests
 check_PROGRAMS = \
 	test/edgestatus \
+	test/optimizer \ 
 	test/adjacencylist 
 test_edgestatus_SOURCES = test/edgestatus.cc test/test.cc
 test_edgestatus_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_CPPFLAGS) @BOOST_CPPFLAGS@
 test_edgestatus_LDADD = $(DEPS_LIBS) $(VALHALLA_LDFLAGS) @BOOST_LDFLAGS@ libvalhalla_thor.la
+test_optimizer_SOURCES = test/optimizer.cc test/test.cc
+test_optimizer_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_CPPFLAGS) @BOOST_CPPFLAGS@
+test_optimizer_LDADD = $(DEPS_LIBS) $(VALHALLA_LDFLAGS) @BOOST_LDFLAGS@ libvalhalla_thor.la
 test_adjacencylist_SOURCES = test/adjacencylist.cc test/test.cc
 test_adjacencylist_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_CPPFLAGS) @BOOST_CPPFLAGS@
 test_adjacencylist_LDADD = $(DEPS_LIBS) $(VALHALLA_LDFLAGS) @BOOST_LDFLAGS@ libvalhalla_thor.la
