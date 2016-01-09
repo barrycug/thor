@@ -167,9 +167,6 @@ std::vector<PathInfo> BidirectionalAStar::GetBestPath(PathLocation& origin,
         continue;
       }
 
-      if (pred.origin() && origin.date_time_ && *origin.date_time_ == "current")
-        origin.date_time_= DateTime::iso_date_time(DateTime::get_tz_db().from_index(nodeinfo->timezone()));
-
       // Check hierarchy. Count upward transitions (counted on the level
       // transitioned from). Do not expand based on hierarchy level based on
       // number of upward transitions and distance to the destination
@@ -201,7 +198,7 @@ std::vector<PathInfo> BidirectionalAStar::GetBestPath(PathLocation& origin,
         // Skip any superseded edges that match the shortcut mask. Also skip
         // if no access is allowed to this edge (based on costing method)
         if ((shortcuts & directededge->superseded()) ||
-            !costing->Allowed(directededge, pred)) {
+            !costing->Allowed(directededge, pred, tile, edgeid)) {
           continue;
         }
 
@@ -347,9 +344,12 @@ std::vector<PathInfo> BidirectionalAStar::GetBestPath(PathLocation& origin,
         }
         GraphId oppedge = GetOpposingEdgeId(directededge, t2);
 
-        // Get opposing directed edge and check if allowed
+        // Get opposing directed edge and check if allowed. Do not enter
+        // not_thru edges
         const DirectedEdge* opp_edge = t2->directededge(oppedge);
-        if (!costing->AllowedReverse(directededge, pred2, opp_edge, opp_pred_edge)) {
+        if (directededge->not_thru() ||
+            !costing->AllowedReverse(directededge, pred2, opp_edge,
+                                     opp_pred_edge, tile, edgeid)) {
           continue;
         }
 
@@ -465,9 +465,10 @@ void BidirectionalAStar::CheckIfLowerCostPathReverse(const uint32_t idx,
 
 // Add edges at the origin to the forward adjacency list.
 void BidirectionalAStar::SetOrigin(GraphReader& graphreader,
-                 const PathLocation& origin,
+                 PathLocation& origin,
                  const std::shared_ptr<DynamicCost>& costing) {
   // Iterate through edges and add to adjacency list
+  const NodeInfo* nodeinfo = nullptr;
   for (const auto& edge : origin.edges()) {
     // If origin is at a node - skip any inbound edge (dist = 1)
     if (origin.IsNode() && edge.dist == 1) {
@@ -488,10 +489,10 @@ void BidirectionalAStar::SetOrigin(GraphReader& graphreader,
 
     // Get cost and sort cost (based on distance from endnode of this edge
     // to the destination
+    nodeinfo = endtile->node(directededge->endnode());
     Cost cost = costing->EdgeCost(directededge,
                    graphreader.GetEdgeDensity(edgeid)) * (1.0f - edge.dist);
-    float dist = astarheuristic_.GetDistance(endtile->node(
-                    directededge->endnode())->latlng());
+    float dist = astarheuristic_.GetDistance(nodeinfo->latlng());
     float sortcost = cost.cost + astarheuristic_.Get(dist);
 
     // Add EdgeLabel to the adjacency list. Set the predecessor edge index
@@ -500,6 +501,13 @@ void BidirectionalAStar::SetOrigin(GraphReader& graphreader,
     edgelabels_.emplace_back(kInvalidLabel, edgeid, directededge, cost,
             sortcost, dist, directededge->restrictions(),
             directededge->opp_local_idx(), mode_);
+  }
+
+  // Set the origin timezone
+  if (nodeinfo != nullptr && origin.date_time_ &&
+      *origin.date_time_ == "current") {
+    origin.date_time_= DateTime::iso_date_time(
+    		DateTime::get_tz_db().from_index(nodeinfo->timezone()));
   }
 }
 

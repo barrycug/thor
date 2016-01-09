@@ -181,9 +181,6 @@ std::vector<PathInfo> PathAlgorithm::GetBestPath(PathLocation& origin,
       continue;
     }
 
-    if (pred.origin() && origin.date_time_ && *origin.date_time_ == "current")
-      origin.date_time_= DateTime::iso_date_time(DateTime::get_tz_db().from_index(nodeinfo->timezone()));
-
     // Check hierarchy. Count upward transitions (counted on the level
     // transitioned from). Do not expand based on hierarchy level based on
     // number of upward transitions and distance to the destination
@@ -221,7 +218,7 @@ std::vector<PathInfo> PathAlgorithm::GetBestPath(PathLocation& origin,
       // Skip any superseded edges that match the shortcut mask. Also skip
       // if no access is allowed to this edge (based on costing method)
       if ((shortcuts & directededge->superseded()) ||
-          !costing->Allowed(directededge, pred)) {
+          !costing->Allowed(directededge, pred, tile, edgeid)) {
         continue;
       }
 
@@ -328,10 +325,11 @@ void PathAlgorithm::HandleTransitionEdge(const uint32_t level,
 
 // Add an edge at the origin to the adjacency list
 void PathAlgorithm::SetOrigin(GraphReader& graphreader,
-                 const PathLocation& origin,
+                 PathLocation& origin,
                  const PathLocation& destination,
                  const std::shared_ptr<DynamicCost>& costing) {
   // Iterate through edges and add to adjacency list
+  const NodeInfo* nodeinfo = nullptr;
   for (const auto& edge : (origin.edges())) {
     // If origin is at a node - skip any inbound edge (dist = 1)
     if (origin.IsNode() && edge.dist == 1) {
@@ -354,10 +352,10 @@ void PathAlgorithm::SetOrigin(GraphReader& graphreader,
     }
 
     // Get cost
+    nodeinfo = endtile->node(directededge->endnode());
     Cost cost = costing->EdgeCost(directededge,
                     graphreader.GetEdgeDensity(edge.id)) * (1.0f - edge.dist);
-    float dist = astarheuristic_.GetDistance(endtile->node(
-                    directededge->endnode())->latlng());
+    float dist = astarheuristic_.GetDistance(nodeinfo->latlng());
 
     // If this edge is a destination, subtract the partial/remainder cost
     // (cost from the dest. location to the end of the edge) if the
@@ -385,6 +383,13 @@ void PathAlgorithm::SetOrigin(GraphReader& graphreader,
 
     // Set the origin flag
     edgelabels_.push_back(std::move(edge_label));
+  }
+
+  // Set the origin timezone
+  if (nodeinfo != nullptr && origin.date_time_ &&
+	  *origin.date_time_ == "current") {
+    origin.date_time_= DateTime::iso_date_time(
+    		DateTime::get_tz_db().from_index(nodeinfo->timezone()));
   }
 }
 

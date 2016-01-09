@@ -69,9 +69,18 @@ std::vector<PathInfo> MultiModalPathAlgorithm::GetBestPath(
   if (!origin.date_time_)
     return { };
 
+  // Initialize - create adjacency list, edgestatus support, A*, etc.
+  Init(origin.vertex(), destination.vertex(), costing);
+  float mindist = astarheuristic_.GetDistance(origin.vertex());
+
+  // Initialize the origin and destination locations. Initialize the
+  // destination first in case the origin edge includes a destination edge.
+  SetDestination(graphreader, destination, costing);
+  SetOrigin(graphreader, origin, destination, costing);
+
   uint32_t start_time, localtime, date, dow, day = 0;
   bool date_before_tile = false;
-  if (origin.date_time_ && *origin.date_time_ != "current") {
+  if (origin.date_time_) {
     // Set route start time (seconds from midnight), date, and day of week
     start_time = DateTime::seconds_from_midnight(*origin.date_time_);
     localtime = start_time;
@@ -82,15 +91,6 @@ std::vector<PathInfo> MultiModalPathAlgorithm::GetBestPath(
     else
       day = date - tile_creation_date_;
   }
-
-  // Initialize - create adjacency list, edgestatus support, A*, etc.
-  Init(origin.vertex(), destination.vertex(), costing);
-  float mindist = astarheuristic_.GetDistance(origin.vertex());
-
-  // Initialize the origin and destination locations. Initialize the
-  // destination first in case the origin edge includes a destination edge.
-  SetDestination(graphreader, destination, costing);
-  SetOrigin(graphreader, origin, destination, costing);
 
   // Find shortest path
   uint32_t blockid, tripid, prior_stop;
@@ -151,22 +151,8 @@ std::vector<PathInfo> MultiModalPathAlgorithm::GetBestPath(
       continue;
     }
 
-    if (pred.origin() && origin.date_time_ && *origin.date_time_ == "current") {
-      origin.date_time_= DateTime::iso_date_time(DateTime::get_tz_db().from_index(nodeinfo->timezone()));
-      // Set route start time (seconds from midnight), date, and day of week
-      start_time = DateTime::seconds_from_midnight(*origin.date_time_);
-      localtime = start_time;
-      date = DateTime::days_from_pivot_date(DateTime::get_formatted_date(*origin.date_time_));
-      dow  = DateTime::day_of_week_mask(*origin.date_time_);
-      if (date < tile_creation_date_)
-        date_before_tile = true;
-      else
-        day = date - tile_creation_date_;
-    }
-
     // Set a default transfer at a stop (if not same trip Id and block Id)
-    // TODO - support in transit costing method
-    Cost transfer_cost = { 300.0f, 60.0f };
+    Cost transfer_cost = tc->DefaultTransferCost();
 
     // Get any transfer times and penalties if this is a transit stop (and
     // transit has been taken at some point on the path) and mode is pedestrian
@@ -281,7 +267,7 @@ std::vector<PathInfo> MultiModalPathAlgorithm::GetBestPath(
         // is allowed. If mode is pedestrian this will validate walking
         // distance has not been exceeded.
         if (!mode_costing[static_cast<uint32_t>(mode_)]->Allowed(
-                directededge, pred)) {
+                directededge, pred, tile, edgeid)) {
           continue;
         }
 
@@ -444,9 +430,10 @@ bool MultiModalPathAlgorithm::CanReachDestination(const PathLocation& destinatio
     const DirectedEdge* directededge = tile->directededge(nodeinfo->edge_index());
     for (uint32_t i = 0, n = nodeinfo->edge_count(); i < n;
                 i++, directededge++, edgeid++) {
+
       // Skip transition edges or if not allowed for htis mode
       if (directededge->trans_up() || directededge->trans_down() ||
-          !costing->Allowed(directededge, pred)) {
+          !costing->Allowed(directededge, pred, tile, edgeid)) {
         continue;
       }
 
