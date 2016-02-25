@@ -7,7 +7,6 @@
 #include <sstream>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/info_parser.hpp>
 
 #include <prime_server/prime_server.hpp>
 #include <prime_server/http_protocol.hpp>
@@ -160,8 +159,9 @@ namespace {
   class thor_worker_t {
    public:
     thor_worker_t(const boost::property_tree::ptree& config): mode(valhalla::sif::TravelMode::kPedestrian),
-      config(config), reader(config.get_child("mjolnir.hierarchy")),
-      long_request(config.get<float>("thor.logging.long_request")){
+      config(config), reader(config.get_child("mjolnir")),
+      long_request_route(config.get<float>("thor.logging.long_request_route")),
+      long_request_manytomany(config.get<float>("thor.logging.long_request_manytomany")){
       // Register edge/node costing methods
       factory.Register("auto", sif::CreateAutoCost);
       factory.Register("auto_shorter", sif::CreateAutoShorterCost);
@@ -196,7 +196,7 @@ namespace {
         std::string request_str(static_cast<const char*>(job.front().data()), job.front().size());
         std::stringstream stream(request_str);
         try {
-          boost::property_tree::read_info(stream, request);
+          boost::property_tree::read_json(stream, request);
         }
         catch(const std::exception& e) {
           worker_t::result_t result{false};
@@ -247,7 +247,7 @@ namespace {
       //get time for start of request
       auto s = std::chrono::system_clock::now();
       // Forward the original request
-      result.messages.emplace_back(std::move(request_str));
+      result.messages.emplace_back(request_str);
 
       // For each pair of origin/destination
       bool prior_is_node = false;
@@ -274,15 +274,14 @@ namespace {
 
           // Get the algorithm type for this location pair
           thor::PathAlgorithm* path_algorithm;
-
           if (costing == "multimodal") {
             path_algorithm = &multi_modal_astar;
-          } else if (costing == "pedestrian" || costing == "bicycle") {
-            // Use bidirectional A* for pedestrian and bicycle if over 10km
+          } else if (costing == "bus") {
+            path_algorithm = &astar;
+          } else {
+            // Use bidirectional A* for all other costing type (if over 10km)
             float dist = origin.latlng_.Distance(destination.latlng_);
             path_algorithm = (dist > 10000.0f) ? &bidir_astar : &astar;
-          } else {
-            path_algorithm = &astar;
           }
 
           // Get best path
@@ -369,15 +368,14 @@ namespace {
 
           // Get the algorithm type for this location pair
           thor::PathAlgorithm* path_algorithm;
-
           if (costing == "multimodal") {
             path_algorithm = &multi_modal_astar;
-          } else if (costing == "pedestrian" || costing == "bicycle") {
-            // Use bidirectional A* for pedestrian and bicycle if over 10km
+          } else if (costing == "bus") {
+            path_algorithm = &astar;
+          } else {
+            // Use bidirectional A* for all other costing type (if over 10km)
             float dist = origin.latlng_.Distance(destination.latlng_);
             path_algorithm = (dist > 10000.0f) ? &bidir_astar : &astar;
-          } else {
-            path_algorithm = &astar;
           }
 
           // Get best path
@@ -453,11 +451,10 @@ namespace {
       auto e = std::chrono::system_clock::now();
       std::chrono::duration<float, std::milli> elapsed_time = e - s;
       //log request if greater than X (ms)
-      if ((elapsed_time.count() / correlated.size()) > long_request) {
-        std::stringstream ss;
+      if ((elapsed_time.count() / correlated.size()) > long_request_route) {
         LOG_WARN("thor::route request elapsed time (ms)::"+ std::to_string(elapsed_time.count()));
         LOG_WARN("thor::route request exceeded threshold::"+ request_str);
-        midgard::logging::Log("thor_long_request", " [ANALYTICS] ");
+        midgard::logging::Log("valhalla_thor_long_request_route", " [ANALYTICS] ");
       }
       return result;
     }
@@ -503,15 +500,17 @@ namespace {
       if (path_edges.size() == 0) {
         valhalla::sif::cost_ptr_t cost = mode_costing[static_cast<uint32_t>(mode)];
         if (cost->AllowMultiPass()) {
-          // 2nd pass
+          // 2nd pass. Less aggressive hierarchy transitioning
           path_algorithm->Clear();
-          cost->RelaxHierarchyLimits(16.0f);
+          bool using_astar = (path_algorithm == &astar);
+          float relax_factor = using_astar ? 16.0f : 8.0f;
+          cost->RelaxHierarchyLimits(relax_factor);
           midgard::logging::Log("#_passes::2", " [ANALYTICS] ");
           path_edges = path_algorithm->GetBestPath(origin, destination,
                                     reader, mode_costing, mode);
 
-          // 3rd pass
-          if (path_edges.size() == 0) {
+          // 3rd pass (only for A*)
+          if (path_edges.size() == 0 && using_astar) {
             path_algorithm->Clear();
             cost->DisableHighwayTransitions();
             midgard::logging::Log("#_passes::3", " [ANALYTICS] ");
@@ -527,6 +526,7 @@ namespace {
       auto s = std::chrono::system_clock::now();
       // Parse out units; if none specified, use kilometers
       double distance_scale = kKmPerMeter;
+      auto matrix_action_type = request.get_optional<std::string>("matrix_type");
       auto units = request.get<std::string>("units", "km");
       if (units == "mi")
         distance_scale = kMilePerMeter;
@@ -563,12 +563,13 @@ namespace {
       auto e = std::chrono::system_clock::now();
       std::chrono::duration<float, std::milli> elapsed_time = e - s;
       //log request if greater than X (ms)
+      auto long_request = (matrix_type!=MATRIX_TYPE::MANY_TO_MANY) ? long_request_route : long_request_manytomany;
       if ((elapsed_time.count() / correlated.size()) > long_request) {
         std::stringstream ss;
         boost::property_tree::json_parser::write_json(ss, request, false);
-        LOG_WARN("thor::matrix request elapsed time (ms)::"+ std::to_string(elapsed_time.count()));
-        LOG_WARN("thor::matrix request exceeded threshold::"+ ss.str());
-        midgard::logging::Log("thor_long_request", " [ANALYTICS] ");
+        LOG_WARN("thor::" + *matrix_action_type + " matrix request elapsed time (ms)::"+ std::to_string(elapsed_time.count()));
+        LOG_WARN("thor::" + *matrix_action_type + " matrix request exceeded threshold::"+ ss.str());
+        (matrix_type!=MATRIX_TYPE::MANY_TO_MANY) ? midgard::logging::Log("valhalla_thor_long_request_route", " [ANALYTICS] ") : midgard::logging::Log("valhalla_thor_long_request_many_to_many", " [ANALYTICS] ");
       }
 
       http_response_t response(200, "OK", stream.str(), headers_t{CORS, jsonp ? JS_MIME : JSON_MIME});
@@ -689,7 +690,8 @@ namespace {
     thor::PathAlgorithm astar;
     thor::BidirectionalAStar bidir_astar;
     thor::MultiModalPathAlgorithm multi_modal_astar;
-    float long_request;
+    float long_request_route;
+    float long_request_manytomany;
   };
 }
 
