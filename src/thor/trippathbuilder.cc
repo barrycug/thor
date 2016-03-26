@@ -154,6 +154,27 @@ TripPath_RoadClass GetTripPathRoadClass(RoadClass road_class) {
   }
 }
 
+TripPath_TransitType GetTripPathTransitType(TransitType transit_type) {
+  switch (transit_type) {
+    case TransitType::kTram:        // Tram, streetcar, lightrail
+      return TripPath_TransitType::TripPath_TransitType_kTram;
+    case TransitType::kMetro:      // Subway, metro
+      return TripPath_TransitType::TripPath_TransitType_kMetro;
+    case TransitType::kRail:        // Rail
+      return TripPath_TransitType::TripPath_TransitType_kRail;
+    case TransitType::kBus:         // Bus
+      return TripPath_TransitType::TripPath_TransitType_kBus;
+    case TransitType::kFerry:       // Ferry
+      return TripPath_TransitType::TripPath_TransitType_kFerry;
+    case TransitType::kCableCar:    // Cable car
+      return TripPath_TransitType::TripPath_TransitType_kCableCar;
+    case TransitType::kGondola:     // Gondola (suspended cable car)
+      return TripPath_TransitType::TripPath_TransitType_kGondola;
+    case TransitType::kFunicular:   // Funicular (steep incline)
+      return TripPath_TransitType::TripPath_TransitType_kFunicular;
+  }
+}
+
 TripPath_Traversability GetTripPathTraversability(Traversability traversability) {
   switch (traversability) {
     case Traversability::kNone:
@@ -469,7 +490,7 @@ TripPath TripPathBuilder::Build(GraphReader& graphreader,
             assumed_schedule = true;
           } else {
             day = date - graphtile->header()->date_created();
-            if (day > transit_departure->end_day()) {
+            if (day > graphtile->GetTransitSchedule(transit_departure->schedule_index())->end_day()) {
               transit_stop_info->set_assumed_schedule(true);
               assumed_schedule = true;
             }
@@ -614,19 +635,20 @@ TripPath TripPathBuilder::Build(GraphReader& graphreader,
                                                      DateTime::get_tz_db().
                                                      from_index(first_node->timezone())));
     origin.date_time_ = tp_orig->date_time();
-    if (dest.date_time_)
-      tp_dest->set_date_time(*dest.date_time_);
+    tp_dest->set_date_time(DateTime::seconds_to_date(sec,DateTime::get_tz_db().
+                                                     from_index(last_tile->node(startnode)->timezone())));
 
   } else if (origin.date_time_) {
     uint64_t sec = DateTime::seconds_since_epoch(*origin.date_time_,
                                                  DateTime::get_tz_db().
                                                  from_index(first_node->timezone()));
+
     tp_dest->set_date_time(DateTime::seconds_to_date(sec + elapsedtime,
                                                      DateTime::get_tz_db().
                                                      from_index(last_tile->node(startnode)->timezone())));
     dest.date_time_ = tp_dest->date_time();
-    if (origin.date_time_)
-      tp_orig->set_date_time(*origin.date_time_);
+    tp_orig->set_date_time(DateTime::seconds_to_date(sec, DateTime::get_tz_db().
+                                                     from_index(first_node->timezone())));
   }
 
   // Add the last node
@@ -868,21 +890,12 @@ TripPath_Edge* TripPathBuilder::AddTripEdge(const uint32_t idx,
   else if (mode == sif::TravelMode::kPedestrian)
     trip_edge->set_travel_mode(TripPath_TravelMode::TripPath_TravelMode_kPedestrian);
   else if (mode == sif::TravelMode::kPublicTransit)
-    trip_edge->set_travel_mode(TripPath_TravelMode::TripPath_TravelMode_kPublicTransit);
+    trip_edge->set_travel_mode(TripPath_TravelMode::TripPath_TravelMode_kTransit);
 
   /////////////////////////////////////////////////////////////////////////////
   // Process transit information
   if (trip_id
       && (directededge->use() == Use::kRail || directededge->use() == Use::kBus)) {
-
-    // TODO: Need to set based on GTFS values
-    if (directededge->use() == Use::kRail)
-      trip_edge->set_transit_type(
-          TripPath_TransitType::TripPath_TransitType_kMetro);
-
-    if (directededge->use() == Use::kBus)
-      trip_edge->set_transit_type(
-          TripPath_TransitType::TripPath_TransitType_kBus);
 
     TripPath_TransitRouteInfo* transit_route_info = trip_edge
         ->mutable_transit_route_info();
@@ -905,6 +918,9 @@ TripPath_Edge* TripPathBuilder::AddTripEdge(const uint32_t idx,
           transit_departure->routeid());
 
       if (transit_route) {
+        trip_edge->set_transit_type(GetTripPathTransitType(
+            static_cast<TransitType>(transit_route->route_type())));
+
         // Set onestop_id
         if (transit_route->one_stop_offset())
           transit_route_info->set_onestop_id(
