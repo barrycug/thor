@@ -123,7 +123,9 @@ std::vector<PathInfo> BidirectionalAStar::GetBestPath(PathLocation& origin,
       if (predindex != kInvalidLabel) {
         pred = edgelabels_[predindex];
       } else {
-        LOG_ERROR("Bi-directional route failure - forward search exhausted");
+        LOG_ERROR("Bi-directional route failure - forward search exhausted: n = " +
+                  std::to_string(edgelabels_.size()) + "," +
+                  std::to_string(edgelabels_reverse_.size()));
         return { };
       }
     }
@@ -132,7 +134,9 @@ std::vector<PathInfo> BidirectionalAStar::GetBestPath(PathLocation& origin,
       if (predindex2 != kInvalidLabel) {
         pred2 = edgelabels_reverse_[predindex2];
       } else {
-        LOG_ERROR("Bi-directional route failure - reverse search exhausted");
+        LOG_ERROR("Bi-directional route failure - reverse search exhausted: n = " +
+                  std::to_string(edgelabels_reverse_.size()) + "," +
+                  std::to_string(edgelabels_.size()));
         return { };
       }
     }
@@ -355,7 +359,7 @@ std::vector<PathInfo> BidirectionalAStar::GetBestPath(PathLocation& origin,
         const DirectedEdge* opp_edge = t2->directededge(oppedge);
         if (directededge->not_thru() ||
             !costing->AllowedReverse(directededge, pred2, opp_edge,
-                                     opp_pred_edge, tile, edgeid)) {
+                                     tile2, edgeid)) {
           continue;
         }
 
@@ -527,27 +531,23 @@ void BidirectionalAStar::SetDestination(GraphReader& graphreader,
     }
     const DirectedEdge* opp_dir_edge = graphreader.GetOpposingEdge(edgeid);
 
-    // Get the tile at the end node. Skip if tile not found as we won't be
-    // able to expand from this origin edge.
-    const GraphTile* endtile = graphreader.GetGraphTile(directededge->endnode());
-    if (endtile == nullptr) {
-      continue;
-    }
-
     // Get cost and sort cost (based on distance from endnode of this edge
-    // to the origin
+    // to the origin. Make sure we use the reverse A* heuristic. Note that
+    // the end node of the opposing edge is in the same tile as the directed
+    // edge.
     Cost cost = costing->EdgeCost(opp_dir_edge,
                     graphreader.GetEdgeDensity(opp_edge_id)) * edge.dist;
-    float dist = astarheuristic_.GetDistance(endtile->node(
-                      directededge->endnode())->latlng());
+    float dist = astarheuristic_reverse_.GetDistance(tile->node(
+                    opp_dir_edge->endnode())->latlng());
     float sortcost = cost.cost + astarheuristic_reverse_.Get(dist);
 
     // Add EdgeLabel to the adjacency list. Set the predecessor edge index
-    // to invalid to indicate the origin of the path.
+    // to invalid to indicate the origin of the path. Make sure the opposing
+    // edge (edgeid) is set.
     AddToAdjacencyListReverse(opp_edge_id, sortcost);
-    edgelabels_reverse_.emplace_back(kInvalidLabel, opp_edge_id,
+    edgelabels_reverse_.emplace_back(kInvalidLabel, opp_edge_id, edgeid,
              opp_dir_edge, cost, sortcost, dist, opp_dir_edge->restrictions(),
-             opp_dir_edge->opp_local_idx(), mode_);
+             opp_dir_edge->opp_local_idx(), mode_, 0);
   }
 }
 
