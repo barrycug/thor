@@ -55,13 +55,13 @@ libvalhalla_thor_la_SOURCES = \
 	src/thor/astarheuristic.cc \
 	src/thor/bidirectional_astar.cc \
 	src/thor/edgestatus.cc \
-        src/thor/matrix.cc \
+	src/thor/matrix.cc \
 	src/thor/multimodal.cc \
-        src/thor/optimized_path.cc \
+	src/thor/optimized_path.cc \
 	src/thor/optimizer.cc \
 	src/thor/pathalgorithm.cc \
 	src/thor/timedistancematrix.cc \
-        src/thor/trip_path.cc \
+	src/thor/trip_path.cc \
 	src/thor/trippathbuilder.cc \
 	src/thor/service.cc
 libvalhalla_thor_la_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
@@ -78,7 +78,7 @@ check_PROGRAMS = \
 	test/edgestatus \
 	test/optimizer \
 	test/adjacencylist \
-	test/service
+	test/thor_service
 test_edgestatus_SOURCES = test/edgestatus.cc test/test.cc
 test_edgestatus_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
 test_edgestatus_LDADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) @BOOST_LDFLAGS@ libvalhalla_thor.la
@@ -88,9 +88,9 @@ test_optimizer_LDADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) @BOOST_LDFLAGS@ libval
 test_adjacencylist_SOURCES = test/adjacencylist.cc test/test.cc
 test_adjacencylist_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
 test_adjacencylist_LDADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) @BOOST_LDFLAGS@ libvalhalla_thor.la
-test_service_SOURCES = test/service.cc test/test.cc
-test_service_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
-test_service_LDADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) @BOOST_LDFLAGS@ libvalhalla_thor.la
+test_thor_service_SOURCES = test/thor_service.cc test/test.cc
+test_thor_service_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
+test_thor_service_LDADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) @BOOST_LDFLAGS@ libvalhalla_thor.la
 
 TESTS = $(check_PROGRAMS)
 TEST_EXTENSIONS = .sh

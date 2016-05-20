@@ -9,8 +9,7 @@ sudo apt-get install -y autoconf automake pkg-config libtool make pkg-config cma
 #clone async
 mkdir -p deps
 for dep in midgard baldr sif odin; do
-	rm -rf $dep
-	git clone --depth=1 --recurse-submodules --single-branch --branch=master https://github.com/valhalla/$dep.git deps/$dep &
+	git clone --depth=1 --recurse --single-branch https://github.com/valhalla/$dep.git deps/$dep &
 done
 wait
 
@@ -18,7 +17,7 @@ wait
 for dep in midgard baldr sif odin; do
 	pushd deps/$dep
 	./autogen.sh
-	./configure CPPFLAGS=-DBOOST_SPIRIT_THREADSAFE
+	./configure CPPFLAGS="-DBOOST_SPIRIT_THREADSAFE -DBOOST_NO_CXX11_SCOPED_ENUMS"
 	make -j$(nproc)
 	sudo make install
 	popd
