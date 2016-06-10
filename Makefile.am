@@ -43,7 +43,9 @@ nobase_include_HEADERS = \
 	valhalla/thor/adjacencylist.h \
 	valhalla/thor/astarheuristic.h \
 	valhalla/thor/bidirectional_astar.h \
+	valhalla/thor/costmatrix.h \
 	valhalla/thor/edgestatus.h \
+	valhalla/thor/isochrone.h \
 	valhalla/thor/optimizer.h \
 	valhalla/thor/pathalgorithm.h \
 	valhalla/thor/pathinfo.h \
@@ -54,7 +56,9 @@ libvalhalla_thor_la_SOURCES = \
 	src/thor/adjacencylist.cc \
 	src/thor/astarheuristic.cc \
 	src/thor/bidirectional_astar.cc \
+	src/thor/costmatrix.cc \
 	src/thor/edgestatus.cc \
+	src/thor/isochrone.cc \
 	src/thor/matrix.cc \
 	src/thor/multimodal.cc \
 	src/thor/optimized_path.cc \
@@ -66,12 +70,6 @@ libvalhalla_thor_la_SOURCES = \
 	src/thor/service.cc
 libvalhalla_thor_la_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
 libvalhalla_thor_la_LIBADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_FILESYSTEM_LIB) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB) @PROTOC_LIBS@
-
-#distributed executables
-bin_PROGRAMS = thor_service
-thor_service_SOURCES = src/thor/thor_service.cc
-thor_service_CPPFLAGS = $(DEPS_CFLAGS) $(VALHALLA_DEPS_CFLAGS) @BOOST_CPPFLAGS@
-thor_service_LDADD = $(DEPS_LIBS) $(VALHALLA_DEPS_LIBS) @BOOST_LDFLAGS@ $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_FILESYSTEM_LIB) $(BOOST_SYSTEM_LIB) $(BOOST_THREAD_LIB) -lz libvalhalla_thor.la
 
 # tests
 check_PROGRAMS = \

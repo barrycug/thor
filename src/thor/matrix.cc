@@ -8,7 +8,7 @@ using namespace prime_server;
 #include <valhalla/sif/autocost.h>
 #include <valhalla/sif/bicyclecost.h>
 #include <valhalla/sif/pedestriancost.h>
-#include <valhalla/thor/timedistancematrix.h>
+#include <valhalla/thor/costmatrix.h>
 
 #include "thor/service.h"
 
@@ -153,23 +153,24 @@ namespace valhalla {
       if (units == "mi")
         distance_scale = kMilePerMeter;
 
+
       //do the real work
       json::MapPtr json;
-      thor::TimeDistanceMatrix tdmatrix;
+      thor::CostMatrix costmatrix;
       switch ( matrix_type) {
-       case MATRIX_TYPE::ONE_TO_MANY:
-         json = serialize_one_to_many(request.get_optional<std::string>("id"), correlated, tdmatrix.OneToMany(0, correlated, reader, mode_costing, mode), units, distance_scale);
-         matrix_action_type = "one-to-many";
-         break;
-       case MATRIX_TYPE::MANY_TO_ONE:
-         json = serialize_many_to_one(request.get_optional<std::string>("id"), correlated, tdmatrix.ManyToOne(correlated.size() - 1, correlated, reader, mode_costing, mode), units, distance_scale);
-         matrix_action_type = "many-to-one";
-         break;
-       case MATRIX_TYPE::MANY_TO_MANY:
-         json = serialize_many_to_many(request.get_optional<std::string>("id"), correlated, tdmatrix.ManyToMany(correlated, reader, mode_costing, mode), units, distance_scale);
-         matrix_action_type = "many-to-many";
-         break;
-      }
+        case MATRIX_TYPE::ONE_TO_MANY:
+          json = serialize_one_to_many(request.get_optional<std::string>("id"), correlated, costmatrix.SourceToTarget({correlated.front()}, correlated, reader, mode_costing, mode), units, distance_scale);
+          matrix_action_type = "one-to-many";
+          break;
+        case MATRIX_TYPE::MANY_TO_ONE:
+          json = serialize_many_to_one(request.get_optional<std::string>("id"), correlated, costmatrix.SourceToTarget(correlated, {correlated.back()}, reader, mode_costing, mode), units, distance_scale);
+          matrix_action_type = "many-to-one";
+          break;
+        case MATRIX_TYPE::MANY_TO_MANY:
+          json = serialize_many_to_many(request.get_optional<std::string>("id"), correlated, costmatrix.SourceToTarget(correlated, correlated, reader, mode_costing, mode), units, distance_scale);
+          matrix_action_type = "many-to-many";
+          break;
+        }
 
       //jsonp callback if need be
       std::ostringstream stream;
